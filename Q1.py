@@ -30,7 +30,7 @@ import pandas as pd
 
 
 
-population = 5 # should be 25
+population = 25 # should be 25
 bit_length = 10
 # Decision variables are a list in gray code
 list = [1,0,1,1,0,1,1,0]
@@ -71,7 +71,8 @@ def generateDataFrame():
         _f2 = f2(chrom2real(x1), chrom2real(x2), chrom2real(x3))
 
         df.loc[i] = [x1, x2, x3, _f1, _f2]
-
+        #df.to_pickle('testing.pickle')
+        #df = pd.read_pickle('testing.pickle')
     return df
 
 
@@ -81,40 +82,49 @@ def ENDS(df):
 
     fronts = [[df.loc[0]]]
     num_fronts = 1
-
+    added = False
 
     print(df)
     for col, row in df.loc[1:].iterrows():
+        added = False
+
         #print(row)
         for i in range(len(fronts)):
             for value in fronts[i]:
-                print(f'FRONT {value} \n\n')
-
-                print(f'ROW {col,row} \n\n')
+                # print(f'FRONT {value.name} f1: {value["f1"]} f2: {value["f2"]}')
+                # print(f'ROW {row.name} f1: {row["f1"]} f2: {row["f2"]}')
 
                 # Modify this, does it need f1?
                 if row['f1'] > value['f1'] and row['f2'] > value['f2']:
-                    print('value dominates row')
+                    # print('value dominates row')
                     # Check with next front. If doesn't exist create new front
 
                     if i + 1 == num_fronts:
                         num_fronts += 1
                         fronts.append([row])
-                        print('Adding to new front...')
+                        # print('Adding to new front...\n')
                         break
                     # Make it so it checks other values as well before creating new front
-                else:
-                    print(f'value doesn\'t dominate row')
+                elif added == False:
+                    # print(f'value doesn\'t dominate row\n')
                     fronts[i].append(row)
+                    added = True
                     break
 
     # Print fronts
     for i in range(len(fronts)):
         print(f'\nFront: {i + 1}')
         for val in fronts[i]:
-            print(f'{val.name} f1: {val["f1"]} f2: {val["f2"]}')
+            # print(f'{val.name} f1: {val["f1"]} f2: {val["f2"]}')
+            df.at[val.name, 'front number'] = i+1
+            # print(df.at[val.name, 'front'])
+            #df[df.index == val.name]
 
-    return df
+    df = df.sort_values(by="front number")
+    df.reset_index(inplace=True, drop=True)
+    print(df)
+
+    return fronts
 
 def main():
     df = generateDataFrame()
