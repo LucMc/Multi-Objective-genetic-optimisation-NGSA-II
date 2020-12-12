@@ -3,7 +3,7 @@ import array
 import random
 import json
 
-import numpy
+import numpy as np
 
 from math import sqrt
 
@@ -79,12 +79,14 @@ def generateDataFrame():
 def ENDS(df):
     df = df.sort_values(by="f1")
     df.reset_index(inplace=True, drop=True)
+    print("Q1.1", df)
 
     fronts = [[df.loc[0]]]
+    df.at[0, 'front number'] = 1
+
     num_fronts = 1
     added = False
 
-    print(df)
     for col, row in df.loc[1:].iterrows():
         added = False
 
@@ -102,34 +104,88 @@ def ENDS(df):
                     if i + 1 == num_fronts:
                         num_fronts += 1
                         fronts.append([row])
+                        df.at[row.name, 'front number'] = num_fronts
                         # print('Adding to new front...\n')
                         break
                     # Make it so it checks other values as well before creating new front
                 elif added == False:
                     # print(f'value doesn\'t dominate row\n')
                     fronts[i].append(row)
+                    df.at[row.name, 'front number'] = i+1
+
                     added = True
                     break
 
     # Print fronts
-    for i in range(len(fronts)):
-        print(f'\nFront: {i + 1}')
-        for val in fronts[i]:
-            # print(f'{val.name} f1: {val["f1"]} f2: {val["f2"]}')
-            df.at[val.name, 'front number'] = i+1
-            # print(df.at[val.name, 'front'])
-            #df[df.index == val.name]
+    # for i in range(len(fronts)):
+    #     # print(f'\nFront: {i + 1}')
+    #     for val in fronts[i]:
+    #         print(f'{val.name} f1: {val["f1"]} f2: {val["f2"]}')
+    #         # df.at[val.name, 'front number'] = i+1
+    #         # print(df.at[val.name, 'front'])
+    #         #df[df.index == val.name]
+    #         pass
 
     df = df.sort_values(by="front number")
-    df.reset_index(inplace=True, drop=True)
+    #df.reset_index(inplace=True, drop=True)
+    print("\nQ1.2\n", df[['f1', 'f2', 'front number']])
+    print(f"\nworst f1: {max(df['f1'])}\nworst f2: {max(df['f2'])}")
+    return df
+
+
+def crowding_distance(df):
+    # for every front
+    crowding_distances = []
+    for i in range(1, int(max(df['front number'])) + 1):
+        # front = df.sort_values(by="f1")
+        front = df.loc[df['front number'] == float(i)]
+        print("\n\n\n", front)
+
+        # print(front)
+        crowding_distances.append([])
+        crowding_distances[-1].append(np.inf) # first distance is always infinite
+        for index, element in front[1:len(front)-1].iterrows():
+            # You only need to work out for f2 if you sort by f1
+            closest = np.inf
+
+            for i, element2 in front.iterrows():
+                if abs(element2['f2'] - element['f2']) + abs(element2['f1'] - element['f1']) < closest and abs(element2['f2'] - element['f2']) + abs(element2['f1'] - element['f1']) != 0:
+                    closest = abs(element2['f2'] - element['f2']) + abs(element2['f1'] - element['f1'])
+                    print("New Value:", closest)
+
+
+
+                    #closest = max(-((element2['f2'] - element['f2'])) ,element2['f2'] - element['f2']) + max(-((element2['f1'] - element['f1'])), (element2['f1'] - element['f1']))
+
+                #print('VALUE', abs(float(element2['f2'] - element['f2'])) )
+            print('things')
+            print(index)
+            print("Crowding Distance:", closest)
+            df.at[index, 'crowding distance'] = closest
+
+        # First and last inf crowding distances
+
+        # Surely this is affected by scale?
+
+        # crowding_distance[-1].append(np.inf) # last distance is always infinite
+
+
+
+    # find adjacent elements in the front (two closest to it)
+
+    #
+    df.fillna(value=np.inf, inplace=True)
+
     print(df)
 
-    return fronts
+    return df
+
 
 def main():
     df = generateDataFrame()
-    # print(ENDS(df))
-    ENDS(df)
+    df = ENDS(df)
+    df = crowding_distance(df)
+
 
 
 
