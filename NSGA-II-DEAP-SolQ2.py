@@ -32,6 +32,8 @@ from deap import creator
 from deap import tools
 import matplotlib.pyplot as plt
 
+
+
 creator.create("FitnessMin", base.Fitness, weights=(-1.0, -1.0))
 creator.create("Individual", list, fitness=creator.FitnessMin)
 
