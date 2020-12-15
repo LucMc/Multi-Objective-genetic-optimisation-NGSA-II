@@ -25,6 +25,12 @@ import pandas as pd
 ##
 import array
 
+# DISPLAY ALL PANDAS COLUMNS
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_rows', None)
+
+
+
 '''
 
 creator.create("FitnessMin", base.Fitness, weights=(-1.0, -1.0))
@@ -175,8 +181,9 @@ def chrom2real(c):
     # print(numinrange)
     return numinrange
 
-def generateDataFrame():
+def generateDataFrame(child=None):
     df = pd.DataFrame(columns=['x1', 'x2', 'x3', 'f1', 'f2'])
+
     for i in range(population):
         x1 = ""
         x2 = ""
@@ -188,7 +195,6 @@ def generateDataFrame():
             x3 += str(random.randint(0, 1))
         # Change this so its one long variable that is split up
 
-
         _f1 = f1(chrom2real(x1), chrom2real(x2), chrom2real(x3))
         _f2 = f2(chrom2real(x1), chrom2real(x2), chrom2real(x3))
 
@@ -197,11 +203,9 @@ def generateDataFrame():
         #df = pd.read_pickle('testing.pickle')
     return df
 
-
 def ENDS(df):
     df = df.sort_values(by="f1")
     df.reset_index(inplace=True, drop=True)
-    print("Q1.1\n", df)
 
     fronts = [[df.loc[0]]]
     df.at[0, 'front number'] = 1
@@ -250,8 +254,7 @@ def ENDS(df):
 
     df = df.sort_values(by="front number")
     #df.reset_index(inplace=True, drop=True)
-    print("\nQ1.2\n", df[['f1', 'f2', 'front number']])
-    print(f"\nworst f1: {max(df['f1'])}\nworst f2: {max(df['f2'])}")
+
     return df
 
 
@@ -261,7 +264,7 @@ def crowding_distance(df):
     for i in range(1, int(max(df['front number'])) + 1):
         # front = df.sort_values(by="f1")
         front = df.loc[df['front number'] == float(i)]
-        print("\n\n\n", front)
+        # print("\n\n\n", front)
 
         # print(front)
         crowding_distances.append([])
@@ -273,16 +276,14 @@ def crowding_distance(df):
             for i, element2 in front.iterrows():
                 if abs(element2['f2'] - element['f2']) + abs(element2['f1'] - element['f1']) < closest and abs(element2['f2'] - element['f2']) + abs(element2['f1'] - element['f1']) != 0:
                     closest = abs(element2['f2'] - element['f2']) + abs(element2['f1'] - element['f1'])
-                    print("New Value:", closest)
+                    # print("New Value:", closest)
 
 
 
                     #closest = max(-((element2['f2'] - element['f2'])) ,element2['f2'] - element['f2']) + max(-((element2['f1'] - element['f1'])), (element2['f1'] - element['f1']))
 
                 #print('VALUE', abs(float(element2['f2'] - element['f2'])) )
-            print('things')
-            print(index)
-            print("Crowding Distance:", closest)
+
             df.at[index, 'crowding distance'] = closest
 
         # First and last inf crowding distances
@@ -293,7 +294,6 @@ def crowding_distance(df):
 
     # sort df
     df.sort_values(['front number', 'crowding distance'], ascending=[True, False], inplace=True)
-    print("\nQ1.3\n", df[['f1', 'f2', 'front number', "crowding distance"]])
 
     return df
 
@@ -306,11 +306,13 @@ def tournament_selection(df):
         selection = df.sample(n=2)
 
         # Compare front number
-        print('\n\n\n\n')
-        print(selection)
+        # print('\n\n\n\n')
 
         if len(selection[selection['front number'] == min(selection['front number'])]) == 2:
-            selection = selection[selection['crowding distance'] == min(selection['crowding distance'])]
+            # Incase they are both the same crowding distance as well, choose a random one
+            selection = selection[selection['crowding distance'] == min(selection['crowding distance'])].sample(n=1)
+            # print(len(selection))
+
         else:
             selection = selection[selection['front number'] == min(selection['front number'])]
 
@@ -322,31 +324,47 @@ def tournament_selection(df):
 
         parent1_chromosome = "" + parent1['x1'].item() + parent1['x2'].item() + parent1['x3'].item()
         parent2_chromosome = "" + parent2['x1'].item() + parent2['x2'].item() + parent2['x3'].item()
-        print('chromosomes')
-        # print(parent1['x1'].item())
+        # print('chromosomes')
 
-        print(parent1_chromosome)
-        print(parent2_chromosome)
+        # print(parent1_chromosome)
+        # print(parent2_chromosome)
 
-        for i in range(numOfBits*3):
-            bit = random.choice([parent1_chromosome, parent2_chromosome])[i]
-            # mutation
-            if random.uniform(0,1) > flip_prob:
-                print("BIT FLIP")
-                bit = int(bit) ^ 1
 
-            child += str(bit)
-            # print(child)
-            # print(str(bit))
+        # Maybe redo this so it's a list like in DEAP then rejoin the list at the end.
+        if random.random() < 0.9: # crossover probability
+            for i in range(len(parent1_chromosome)):
+                if random.random() < 0.5: # This needs to be inversely proportional maybe
+                    parent1_chromosome = parent1_chromosome[:i] + parent2_chromosome[i] + parent1_chromosome[i+1:]
+                    parent2_chromosome = parent2_chromosome[:i] + parent1_chromosome[i] + parent2_chromosome[i+1:]
 
-        print("RESULT:", child)
-        return child
+                    # parent1_chromosome[i], parent2_chromosome[i] = parent2_chromosome[i], parent1_chromosome[i]
+                if random.random() > flip_prob:
+                    parent1_chromosome = parent1_chromosome[:i] + str(int(parent1_chromosome[i]) ^ 1) + parent1_chromosome[i+1:]
+                    # print("flip", i)
+                if random.random() > flip_prob:
+                    parent2_chromosome = parent2_chromosome[:i] + str(int(parent2_chromosome[i]) ^ 1) + parent2_chromosome[i+1:]
+                    # print("flip", i)
+
+
+        return parent1_chromosome, parent2_chromosome
+
+
+        # for i in range(numOfBits*3):
+        #     bit = random.choice([parent1_chromosome, parent2_chromosome])[i]
+        #     # mutation
+        #     if random.uniform(0,1) > flip_prob:
+        #         bit = int(bit) ^ 1
+        #
+        #     child += str(bit)
+
+        # print("RESULT:", child)
+        # return child
 
     # Select two parents through tournament
+
     parent1 = sample_pair(df)
     parent2 = sample_pair(df)
-
-    child = uniform(parent1, parent2)
+    child1, child2 = uniform(parent1, parent2)
 
     # Convert to pandas row
     # Check the above process
@@ -354,18 +372,63 @@ def tournament_selection(df):
     # df.loc[i] = [child[:bit_length], child[bit_length:], , _f1, _f2]
 
     # child = pd.DataFrame({'x1': child[:bit_length], 'x2': child[bit_length:]})
-    return child
+    # print(child1, child2)
+    return child1, child2
 
 
 
 def main():
+    # Q1.1
     df = generateDataFrame()
+    print("Q1.1\n", df)
+
+    # Q1.2
+    df = ENDS(df)
+    print("\nQ1.2\n", df[['f1', 'f2', 'front number']])
+    print(f"\nworst f1: {max(df['f1'])}\nworst f2: {max(df['f2'])}")
+
+    # Q1.3
+    df = crowding_distance(df)
+    print("\nQ1.3\n", df[['f1', 'f2', 'front number', "crowding distance"]])
+
+    # Q1.4
+    # Make this into a function
+    # Generate new data from new population
+
+    next_gen_df = pd.DataFrame(columns=['x1', 'x2', 'x3', 'f1', 'f2'])
+    initial_df = df
+    index = 0
+    # for gen in range(20):
+    for i in range(int(population/2)):
+        children = tournament_selection(df)
+
+        for child in children:
+            index += 1
+
+            x1 = child[:bit_length]
+            x2 = child[bit_length:bit_length * 2]
+            x3 = child[bit_length*2:]
+
+            _f1 = f1(chrom2real(x1), chrom2real(x2), chrom2real(x3))
+            _f2 = f2(chrom2real(x1), chrom2real(x2), chrom2real(x3))
+
+            next_gen_df.loc[index] = [x1, x2, x3, _f1, _f2]
+
+    # if gen == 19:
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+
+    ax1.scatter(initial_df['f1'], initial_df['f2'], s=20, c='b', marker="o", label='initial generation')
+    ax1.scatter(next_gen_df['f1'], next_gen_df['f2'], s=20, c='r', marker="o", label='second generation')
+    plt.legend(loc='upper left');
+    plt.show()
+    df = next_gen_df
     df = ENDS(df)
     df = crowding_distance(df)
 
-    # Fix table generation since x3 and f values are messed up
-    tournament_selection(df)
-
+    print("------------------NEXT GEN------------------")
+    print(next_gen_df)
+    print(index)
 
 if __name__ == '__main__':
     main()
