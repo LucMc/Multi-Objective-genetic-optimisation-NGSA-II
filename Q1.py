@@ -23,7 +23,8 @@ from sympy.combinatorics.graycode import bin_to_gray
 ##
 import pandas as pd
 ##
-import array
+import pygmo as pg                   # multi-objective optimisation framework
+
 
 # DISPLAY ALL PANDAS COLUMNS
 pd.set_option('display.max_columns', None)
@@ -165,6 +166,7 @@ list = [1,0,1,1,0,1,1,0]
 numOfBits = 10 # Number of bits in the chromosomes
 maxnum = 2**numOfBits # absolute max size of number coded by binary list 1,0,0,1,1,....
 flip_prob = 0.9
+NGEN = 30
 
 def f1(x1, x2, x3):
     return ((x1/2.0)**2 + (x2/4.0)**2 + (x3)**2) / 3.0
@@ -206,7 +208,7 @@ def generateDataFrame(child=None):
 def ENDS(df):
     df = df.sort_values(by="f1")
     df.reset_index(inplace=True, drop=True)
-
+    # print(df)
     fronts = [[df.loc[0]]]
     df.at[0, 'front number'] = 1
 
@@ -219,7 +221,7 @@ def ENDS(df):
         #print(row)
         for i in range(len(fronts)):
             for value in fronts[i]:
-                # print(f'FRONT {value.name} f1: {value["f1"]} f2: {value["f2"]}')
+                # print(f'FRONT({i}) {value.name} f1: {value["f1"]} f2: {value["f2"]}')
                 # print(f'ROW {row.name} f1: {row["f1"]} f2: {row["f2"]}')
 
                 # Modify this, does it need f1?
@@ -376,27 +378,8 @@ def tournament_selection(df):
     return child1, child2
 
 
-
-def main():
-    # Q1.1
-    df = generateDataFrame()
-    print("Q1.1\n", df)
-
-    # Q1.2
-    df = ENDS(df)
-    print("\nQ1.2\n", df[['f1', 'f2', 'front number']])
-    print(f"\nworst f1: {max(df['f1'])}\nworst f2: {max(df['f2'])}")
-
-    # Q1.3
-    df = crowding_distance(df)
-    print("\nQ1.3\n", df[['f1', 'f2', 'front number', "crowding distance"]])
-
-    # Q1.4
-    # Make this into a function
-    # Generate new data from new population
-
+def next_generation(df):
     next_gen_df = pd.DataFrame(columns=['x1', 'x2', 'x3', 'f1', 'f2'])
-    initial_df = df
     index = 0
     # for gen in range(20):
     for i in range(int(population/2)):
@@ -413,22 +396,85 @@ def main():
             _f2 = f2(chrom2real(x1), chrom2real(x2), chrom2real(x3))
 
             next_gen_df.loc[index] = [x1, x2, x3, _f1, _f2]
+    return next_gen_df
 
-    # if gen == 19:
+def plot(df, initial_df):
     fig = plt.figure()
     ax1 = fig.add_subplot(111)
-
     ax1.scatter(initial_df['f1'], initial_df['f2'], s=20, c='b', marker="o", label='initial generation')
-    ax1.scatter(next_gen_df['f1'], next_gen_df['f2'], s=20, c='r', marker="o", label='second generation')
+    ax1.scatter(df['f1'], df['f2'], s=20, c='r', marker="o", label='next generation')
     plt.legend(loc='upper left');
     plt.show()
-    df = next_gen_df
+
+def hypervolume(df):
+
+
+    return 1
+
+
+
+def main():
+    # Q1.1
+    df = generateDataFrame()
+    print("Q1.1\n", df)
+
+    # Q1.2
+    df = ENDS(df)
+    print("\nQ1.2\n", df[['f1', 'f2', 'front number']])
+    worst_f1 = max(df['f1'])
+    worst_f2 = max(df['f2'])
+    print(f"\nworst f1: {worst_f1}\nworst f2: {worst_f2}")
+
+    # Q1.3
+    df = crowding_distance(df)
+    print("\nQ1.3\n", df[['f1', 'f2', 'front number', "crowding distance"]])
+
+    # Q1.4
+    # Make this into a function
+    # Generate new data from new population
+    initial_df = df
+    df = next_generation(df)
+
+    # df = ENDS(df)
+    # df = crowding_distance(df)
+
+    plot(df, initial_df)
+
+    # print("------------------NEXT GEN------------------")
+    # # print(next_gen_df)
+
+    # Q1.5 Combined
+    df = pd.concat([df, initial_df])
     df = ENDS(df)
     df = crowding_distance(df)
 
-    print("------------------NEXT GEN------------------")
-    print(next_gen_df)
-    print(index)
+    # Select 25 individuals based on ENDS
+    df.sort_values(['front number', 'crowding distance'], ascending=[True, False], inplace=True)
+
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+
+    ax1.scatter(df[:25]['f1'], df[:25]['f2'], s=20, c='b', marker="o", label='overall generation')
+    ax1.scatter(df[25:]['f1'], df[25:]['f2'], s=20, c='r', marker="o", label='selected generation')
+    plt.legend(loc='upper left');
+    plt.show()
+
+    # Q1.6 Hypervolume
+    hypervolumes = []
+    for i in range(NGEN):
+        df = next_generation(df)
+        df = ENDS(df)
+        df = crowding_distance(df)
+
+        plot(df, initial_df)
+        # problem if a generation has a worse value of f1 or f2 than original worst
+        hyp = pg.hypervolume(df[['f1', 'f2']].values)
+        hyp = hyp.compute([worst_f1, worst_f2])
+        hypervolumes.append(hyp)
+        print(f"Hypervolume: {hyp}")
+
+    plt.plot(hypervolumes)
+    plt.show()
 
 if __name__ == '__main__':
     main()
