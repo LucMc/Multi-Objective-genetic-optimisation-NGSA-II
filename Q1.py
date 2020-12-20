@@ -162,10 +162,10 @@ if __name__ == "__main__":
 population = 28 # changed from 25
 bit_length = 10
 # Decision variables are a list in gray code
-list = [1,0,1,1,0,1,1,0]
+# list = [1,0,1,1,0,1,1,0]
 numOfBits = 10 # Number of bits in the chromosomes
 maxnum = 2**numOfBits # absolute max size of number coded by binary list 1,0,0,1,1,....
-flip_prob = 0.9
+flip_prob = 0.1
 NGEN = 30
 
 def f1(x1, x2, x3):
@@ -175,7 +175,7 @@ def f1(x1, x2, x3):
 def f2(x1, x2, x3):
     return ((x1/2.0-1.0)**2 + (x2/4.0-1.0)**2 + (x3-1.0)**2) / 3.0
 
-def chrom2real(c):
+def chrom_to_real(c):
     indasstring=''.join(map(str, c))
     degray=gray_to_bin(indasstring)
     numasint=int(degray, 2) # convert to int from base 2 list
@@ -183,26 +183,24 @@ def chrom2real(c):
     # print(numinrange)
     return numinrange
 
-def generateDataFrame(child=None):
+def generateDataFrame():
     df = pd.DataFrame(columns=['x1', 'x2', 'x3', 'f1', 'f2'])
 
     for i in range(population):
-        x1 = ""
-        x2 = ""
-        x3 = ""
-
-        for x in range(bit_length):
-            x1 += str(random.randint(0, 1))
-            x2 += str(random.randint(0, 1))
-            x3 += str(random.randint(0, 1))
+        individual = [random.randint(0, 1) for _ in range(bit_length*3)]
         # Change this so its one long variable that is split up
+        individual = [str(x) for x in individual]
+        x1 = "".join(individual[:bit_length])
+        x2 = "".join(individual[bit_length:bit_length*2])
+        x3 = "".join(individual[bit_length*2:])
 
-        _f1 = f1(chrom2real(x1), chrom2real(x2), chrom2real(x3))
-        _f2 = f2(chrom2real(x1), chrom2real(x2), chrom2real(x3))
+        _f1 = f1(chrom_to_real(x1), chrom_to_real(x2), chrom_to_real(x3))
+        _f2 = f2(chrom_to_real(x1), chrom_to_real(x2), chrom_to_real(x3))
 
         df.loc[i] = [x1, x2, x3, _f1, _f2]
-        #df.to_pickle('testing.pickle')
-        #df = pd.read_pickle('testing.pickle')
+
+        # df.to_pickle('testing.pickle')
+        # df = pd.read_pickle('testing.pickle')
     return df
 
 def ENDS(df):
@@ -220,11 +218,10 @@ def ENDS(df):
 
         #print(row)
         for i in range(len(fronts)):
-            for value in fronts[i]:
+            for value in reversed(fronts[i]):
                 # print(f'FRONT({i}) {value.name} f1: {value["f1"]} f2: {value["f2"]}')
                 # print(f'ROW {row.name} f1: {row["f1"]} f2: {row["f2"]}')
 
-                # Modify this, does it need f1?
                 if row['f1'] > value['f1'] and row['f2'] > value['f2']:
                     # print('value dominates row')
                     # Check with next front. If doesn't exist create new front
@@ -279,9 +276,6 @@ def crowding_distance(df):
                 if abs(element2['f2'] - element['f2']) + abs(element2['f1'] - element['f1']) < closest and abs(element2['f2'] - element['f2']) + abs(element2['f1'] - element['f1']) != 0:
                     closest = abs(element2['f2'] - element['f2']) + abs(element2['f1'] - element['f1'])
                     # print("New Value:", closest)
-
-
-
                     #closest = max(-((element2['f2'] - element['f2'])) ,element2['f2'] - element['f2']) + max(-((element2['f1'] - element['f1'])), (element2['f1'] - element['f1']))
 
                 #print('VALUE', abs(float(element2['f2'] - element['f2'])) )
@@ -320,12 +314,12 @@ def tournament_selection(df):
 
         return selection
 
-    def uniform(parent1, parent2):
+    def uniform(indv1, indv2):
         # Crossover
         child = ''
 
-        parent1_chromosome = "" + parent1['x1'].item() + parent1['x2'].item() + parent1['x3'].item()
-        parent2_chromosome = "" + parent2['x1'].item() + parent2['x2'].item() + parent2['x3'].item()
+        individual1_chromosome = "" + indv1['x1'].item() + indv1['x2'].item() + indv1['x3'].item()
+        individual2_chromosome = "" + indv2['x1'].item() + indv2['x2'].item() + indv2['x3'].item()
         # print('chromosomes')
 
         # print(parent1_chromosome)
@@ -334,21 +328,21 @@ def tournament_selection(df):
 
         # Maybe redo this so it's a list like in DEAP then rejoin the list at the end.
         if random.random() < 0.9: # crossover probability
-            for i in range(len(parent1_chromosome)):
+            for i in range(len(individual1_chromosome)):
                 if random.random() < 0.5: # This needs to be inversely proportional maybe
-                    parent1_chromosome = parent1_chromosome[:i] + parent2_chromosome[i] + parent1_chromosome[i+1:]
-                    parent2_chromosome = parent2_chromosome[:i] + parent1_chromosome[i] + parent2_chromosome[i+1:]
+                    individual1_chromosome = individual1_chromosome[:i] + individual2_chromosome[i] + individual1_chromosome[i+1:]
+                    individual2_chromosome = individual2_chromosome[:i] + individual1_chromosome[i] + individual2_chromosome[i+1:]
 
                     # parent1_chromosome[i], parent2_chromosome[i] = parent2_chromosome[i], parent1_chromosome[i]
-                if random.random() > flip_prob:
-                    parent1_chromosome = parent1_chromosome[:i] + str(int(parent1_chromosome[i]) ^ 1) + parent1_chromosome[i+1:]
+                if random.random() < flip_prob:
+                    individual1_chromosome = individual1_chromosome[:i] + str(int(individual1_chromosome[i]) ^ 1) + individual1_chromosome[i+1:]
                     # print("flip", i)
-                if random.random() > flip_prob:
-                    parent2_chromosome = parent2_chromosome[:i] + str(int(parent2_chromosome[i]) ^ 1) + parent2_chromosome[i+1:]
+                if random.random() < flip_prob:
+                    individual2_chromosome = individual2_chromosome[:i] + str(int(individual2_chromosome[i]) ^ 1) + individual2_chromosome[i+1:]
                     # print("flip", i)
 
 
-        return parent1_chromosome, parent2_chromosome
+        return individual1_chromosome, individual2_chromosome
 
 
         # for i in range(numOfBits*3):
@@ -392,8 +386,8 @@ def next_generation(df):
             x2 = child[bit_length:bit_length * 2]
             x3 = child[bit_length*2:]
 
-            _f1 = f1(chrom2real(x1), chrom2real(x2), chrom2real(x3))
-            _f2 = f2(chrom2real(x1), chrom2real(x2), chrom2real(x3))
+            _f1 = f1(chrom_to_real(x1), chrom_to_real(x2), chrom_to_real(x3))
+            _f2 = f2(chrom_to_real(x1), chrom_to_real(x2), chrom_to_real(x3))
 
             next_gen_df.loc[index] = [x1, x2, x3, _f1, _f2]
     return next_gen_df
@@ -405,13 +399,6 @@ def plot(df, initial_df):
     ax1.scatter(df['f1'], df['f2'], s=20, c='r', marker="o", label='next generation')
     plt.legend(loc='upper left');
     plt.show()
-
-def hypervolume(df):
-
-
-    return 1
-
-
 
 def main():
     # Q1.1
@@ -454,8 +441,8 @@ def main():
     fig = plt.figure()
     ax1 = fig.add_subplot(111)
 
-    ax1.scatter(df[:25]['f1'], df[:25]['f2'], s=20, c='b', marker="o", label='overall generation')
-    ax1.scatter(df[25:]['f1'], df[25:]['f2'], s=20, c='r', marker="o", label='selected generation')
+    ax1.scatter(df[:25]['f1'], df[:25]['f2'], s=20, c='b', marker="o", label='selected generation')
+    ax1.scatter(df[25:]['f1'], df[25:]['f2'], s=20, c='r', marker="o", label='overall generation')
     plt.legend(loc='upper left');
     plt.show()
 
@@ -469,7 +456,7 @@ def main():
         plot(df, initial_df)
         # problem if a generation has a worse value of f1 or f2 than original worst
         hyp = pg.hypervolume(df[['f1', 'f2']].values)
-        hyp = hyp.compute([worst_f1, worst_f2])
+        hyp = hyp.compute([worst_f1+1, worst_f2+1]) # added 2 ;)
         hypervolumes.append(hyp)
         print(f"Hypervolume: {hyp}")
 

@@ -91,3 +91,31 @@ if torch.cuda.is_available():
     print(z)
     print(z.to("cpu", torch.double))       # ``.to`` can also change dtype together!
 
+# import torch
+#
+# " Data for training"
+# x_train = torch.FloatTensor([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+# y_train = torch.FloatTensor([2, 4, 6, 8, 10, 12, 14, 16, 18, 20])
+#
+# " Data for evaluation of model"
+# x_test = torch.FloatTensor([2, 4, 6, 8, 10, 12, 14, 16, 18, 20])
+#
+# model = torch.nn.Sequential(torch.nn.Linear(10, 3), torch.nn.ReLU(), torch.nn.Linear(3, 10), )
+#
+# loss_fn = torch.nn.MSELoss(reduction='sum')
+#
+# learning_rate = 1e-4
+# for t in range(48500):
+#     y_pred = model(x_train)
+#     loss = loss_fn(y_pred, y_train)
+#     if t % 1000 == 999:
+#         print(t, loss.item())
+#
+#     model.zero_grad()
+#     loss.backward()
+#     with torch.no_grad():
+#         for param in model.parameters():
+#             param -= learning_rate * param.grad
+#
+# y_pred_to_validate = model(x_test)
+# print(y_pred_to_validate.detach().numpy())
