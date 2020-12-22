@@ -179,7 +179,7 @@ def chrom_to_real(c):
     indasstring=''.join(map(str, c))
     degray=gray_to_bin(indasstring)
     numasint=int(degray, 2) # convert to int from base 2 list
-    numinrange = -4+8*numasint/maxnum # CHANGED TO OUR VALUES
+    numinrange = -4 + 8*numasint/maxnum # CHANGED TO OUR VALUES
     # print(numinrange)
     return numinrange
 
@@ -380,7 +380,6 @@ def next_generation(df):
         children = tournament_selection(df)
 
         for child in children:
-            index += 1
 
             x1 = child[:bit_length]
             x2 = child[bit_length:bit_length * 2]
@@ -390,6 +389,8 @@ def next_generation(df):
             _f2 = f2(chrom_to_real(x1), chrom_to_real(x2), chrom_to_real(x3))
 
             next_gen_df.loc[index] = [x1, x2, x3, _f1, _f2]
+            index += 1
+
     return next_gen_df
 
 def plot(df, initial_df):
