@@ -52,25 +52,28 @@ def f(x1, x2):
 
 # Generate initial data Q2.2
 def generate_data():
+    # Initialise DataFrame
     df = pd.DataFrame(columns=['x1', 'x2', 'output'])
-    for i in range(25):
+    # Generate 21 samples
+    for i in range(21):
+        # random real x1 and x2
         x1 = random.uniform(0, 2*pi)
         x2 = random.uniform(0, 2*pi)
 
+        # Calculate y
         y = f(x1, x2)
+        # Allocate to DataFrame
         df.loc[i] = [x1, x2, y]
 
-    # print(df.head())
+    # train on first 11
     train = df[:11] # 11
-    test = df[11:] # 11
-    # print(train)
-    # print(test)
+    test = df[11:] # 10
 
     # Save dataframes as .dat files as space seperated values
     print('Saving dat files.')
     train.to_csv('./train.dat', index=False, sep=' ', header=False)
     test.to_csv('./test.dat', index=False, sep=' ', header=False)
-    return df, test, train
+    return test, train
 
 # Used to 3D plot x1 and x2 with output
 def plot(*args):
@@ -108,16 +111,16 @@ class Net(nn.Module):
     def forward(self, x):
         x = torch.sigmoid(self.hidden(x)) # Sigmoid activation on hidden layer
         x = self.out(x) # Linear activation for output
-        return x # F.log_softmax(x, dim=0)
+        return x
 
 # generate data
-df, test, train = generate_data()
-
-data = genfromtxt('train.dat', delimiter=' ') # change back to test 1, test 2 shows more samples
+test, train = generate_data() # Generate test/ training files
+data = genfromtxt('train.dat', delimiter=' ') # Load into pandas DataFrame
 
 # Format training dataset
 x_train = data[:, 0:2]
 y_train = data[:, 2]
+# Convert into torch tensors
 x_train = torch.as_tensor(x_train, dtype=torch.float32)
 y_train = torch.as_tensor(y_train, dtype=torch.float32)
 
@@ -125,6 +128,7 @@ y_train = torch.as_tensor(y_train, dtype=torch.float32)
 data = genfromtxt('test.dat', delimiter=' ')
 x_test = data[:, 0:2]
 y_test = data[:, 2]
+# Convert into torch tensors
 x_test = torch.as_tensor(x_test, dtype=torch.float32)
 y_test = torch.as_tensor(y_test, dtype=torch.float32)
 
@@ -144,20 +148,17 @@ print (net.out.weight)
 
 # Perhaps use torch.no_grad in the first case before lifetime learning
 
+'''Training'''
 def train_net(df, net, method='Lamarckian'):
-    ##
-    if method == 'Lamarckian':
-        method = 'Baldwinian'
-
     optimizer = torch.optim.Rprop(net.parameters(), lr=0.01)
     loss_fn = torch.nn.MSELoss(reduction='mean')
     for ind, row in df.iterrows():
         # print(f"Before: {net.out.weight}")
         net = Net() # Reset network for new weights
+        total = 0
 
         # initialise weights
-
-        weights = [float(x) for x in row.drop('MSE').apply(chrom_to_real).to_numpy()]
+        weights = [float(x) for x in row.drop(['MSE', 'train MSE']).apply(chrom_to_real).to_numpy()]
         net.out.weight = torch.nn.parameter.Parameter(torch.as_tensor([weights]))
         # print(f"FIRST WEIGHT: {net.out.weight}")
 
@@ -169,25 +170,13 @@ def train_net(df, net, method='Lamarckian'):
             X, y = x_train[i], y_train[i]
             net.zero_grad()
             output = net(X)
-            # print(output)
-
-            # loss = F.nll_loss(output, y)
-            # print("start: ", net.out.weight)
 
             loss = loss_fn(output, y.view(1))
+            total += loss.item()
             loss.backward()
             optimizer.step() # part 2.7 RPROP
-            # print("Changed", net.out.weight, "\n\n")
 
-            # update table weights
-            # print(df[df.index == ind])
-        # print(total_loss)
-        # print(f"After: {net.out.weight}")
-
-        # Selection pressure is present in both
-
-        # Validation
-        '''Is selection pressure preasent in both?'''
+        df.loc[ind]['train MSE'] = total
 
         if method != 'Baldwinian' and method != 'Lamarckian':
             print("Please Choose an evolution strategy.")
@@ -200,10 +189,57 @@ def train_net(df, net, method='Lamarckian'):
         else:
             # Baldwinian
             df.loc[ind]['MSE'] = test_loss(net)
-
-
     return df
 
+'''Training '''
+'''
+def train_net(df, net):
+    # optimizer = torch.optim.Rprop(net.parameters(), lr=0.01)
+    loss_fn = torch.nn.MSELoss(reduction='mean') # loss function
+    for ind, row in df.iterrows(): # for every row in DataFrame
+        total = 0 # total training loss
+        net = Net() # Reset network for new weights
+
+        # initialise weights
+        weights = [float(x) for x in row.drop(['MSE', 'train MSE']).apply(chrom_to_real).to_numpy()]
+        net.out.weight = torch.nn.parameter.Parameter(torch.as_tensor([weights]))
+
+        for i in range(len(x_train)):
+            # data is a batch of featuresets and labels
+            X, y = x_train[i], y_train[i]
+            net.zero_grad()
+            output = net(X)
+            loss = loss_fn(output, y.view(1))
+            total += loss.item()
+
+        # Update DataFrame with loss
+        df.loc[ind]['MSE'] = test_loss(net)
+        df.loc[ind]['train MSE'] = total
+    return df
+    ####
+        for i in range(1, NGEN):
+        df = train_net(next_generation(df), net=net)
+        print(df['MSE'].mean())
+
+        generations_test[i] = min(df['MSE'])
+        generations_train[i] = min(df['train MSE'])
+
+        # generations_train[i] = min(df['train MSE'])
+        print(min(df['MSE']))
+
+        print(list(generations_test.keys()), generations_test.values())
+        print(list(generations_train.keys()), generations_train.values())
+
+
+        # Plot the methods
+        axs[0].set_title('Training Loss')
+        axs[0].scatter(list(generations_train.keys()), list(generations_train.values()), alpha=0.9, cmap='Greens')
+
+        axs[1].set_title('Testing Loss')
+        axs[1].scatter(list(generations_test.keys()), list(generations_test.values()), alpha=0.9, cmap='Greens')
+
+    plt.show()
+'''
 
 ''' Testing '''
 def test_loss(net):
@@ -223,6 +259,7 @@ def test_loss(net):
             total_loss += loss.item()
     return total_loss
 
+
 # Convert chromosome into real
 def chrom_to_real(c):
     indasstring=''.join(map(str, c)) # convert list to string
@@ -241,11 +278,9 @@ def real_to_chrom(r):
     # print(chrom)
     return ''.join(chrom)
 
-# print(chrom_to_real(real_to_chrom(5)))
-# sys.exit()
 
 def generateDataFrame():
-    df = pd.DataFrame(columns=['w1', 'w2', 'w3', 'w4', 'w5', 'w6', 'MSE'])
+    df = pd.DataFrame(columns=['w1', 'w2', 'w3', 'w4', 'w5', 'w6', 'MSE', 'train MSE'])
 
     for i in range(population):
         individual = [random.randint(0, 1) for _ in range(bit_length*6)]
@@ -259,7 +294,7 @@ def generateDataFrame():
         w6 = "".join(individual[bit_length*5:])
 
         # df.loc[i] = [chrom_to_real(w1), chrom_to_real(w2), chrom_to_real(w3), chrom_to_real(w4), chrom_to_real(w5), chrom_to_real(w6), MSE(w1, w2, w3, w4, w5, w6)]
-        df.loc[i] = [w1, w2, w3, w4, w5, w6, 1] # 1 as a placeholder for MSE
+        df.loc[i] = [w1, w2, w3, w4, w5, w6, 1, 1] # 1 as a placeholder for MSE
     return df
 
 
@@ -273,6 +308,8 @@ def tournament_selection(df):
     # Uniform Crossover
     def uniform(indv1, indv2):
         # Recombine individual chromosomes
+        # print(indv1)
+        # print(indv2)
         individual1_chromosome = "" + indv1['w1'].item() + indv1['w2'].item() + indv1['w3'].item() + \
                                  indv1['w4'].item() + indv1['w5'].item() + indv1['w6'].item()
         individual2_chromosome = "" + indv2['w1'].item() + indv2['w2'].item() + indv2['w3'].item() + \
@@ -302,7 +339,7 @@ def tournament_selection(df):
 # Selection and crossover to create a new generation
 def next_generation(df):
     # Initialise new generation
-    next_gen_df = pd.DataFrame(columns=['w1', 'w2', 'w3', 'w4', 'w5', 'w6', 'MSE'])
+    next_gen_df = pd.DataFrame(columns=['w1', 'w2', 'w3', 'w4', 'w5', 'w6', 'MSE', 'train MSE'])
     index = 0 # Index in DataFrame
     for i in range(int(population/2)):# for range of half because selection and crossover produces 2 children
         children = tournament_selection(df)
@@ -317,13 +354,15 @@ def next_generation(df):
             w6 = child[bit_length * 5:]
 
             # Append weight variables into DataFrame
-            next_gen_df.loc[index] = [w1, w2, w3, w4, w5, w6, 1]
+            next_gen_df.loc[index] = [w1, w2, w3, w4, w5, w6, 1, 1]
             index += 1
 
     return next_gen_df
 
 # Main function for our program
 def main():
+    plot(train, test) # Keep this in normally
+
     initial_net = Net()  # define the network
     # Q2.2
     df = generateDataFrame() # Initialise weights
@@ -340,19 +379,20 @@ def main():
 
     initial = df
     # Plot generations
-    generations = {}
-    fig = plt.figure()
-    ax1 = fig.add_subplot(111)
+    generations_train = {}
+    generations_test = {}
+
+    fig, axs = plt.subplots(2)
     # Genetic optimisation comparison
     print("START OF GENERATIONS\n\n")
     # Initialise Lamarckian and Baldwinian networks
     lnet = Net()
     bnet = Net()
 
+    # Collect generation data dor each method
     for method in ['Lamarckian', 'Baldwinian']:
         df = initial
-        net = Net()  # re-initialise network
-        # print(df)
+        # Colour differently and use respective nets
         if method == 'Lemarkian':
             cmap = 'BuPu'
             nn = lnet
@@ -361,26 +401,35 @@ def main():
             nn = bnet
 
         # initialise for first gen
-        generations[0] = min(df['MSE'])
+        generations_test[0] = min(df['MSE'])
+        generations_train[0] = min(df['train MSE'])
+
 
         for i in range(1, NGEN):
-            df = train_net(next_generation(df), method=method, net=net)
-            # print(df['MSE'])
+            df = train_net(next_generation(df), method=method, net=nn)
             print(df['MSE'].mean())
 
-            generations[i] = min(df['MSE'])
+            generations_test[i] = min(df['MSE'])
+            generations_train[i] = min(df['train MSE'])
+
+            # generations_train[i] = min(df['train MSE'])
             print(min(df['MSE']))
-            # print('TESTINGTEST')
-            # print(generations[i])
-            # print(df)
-            # test_net()
-        print(list(generations.keys()), generations.values())
-        ax1.scatter(list(generations.keys()), list(generations.values()), alpha=0.9, cmap=cmap, label=method)
+
+        print(list(generations_test.keys()), generations_test.values())
+        print(list(generations_train.keys()), generations_train.values())
+
+
+        # Plot the methods
+        axs[0].set_title('Training Loss')
+        axs[0].scatter(list(generations_train.keys()), list(generations_train.values()), alpha=0.9, cmap=cmap, label=method)
+
+        axs[1].set_title('Testing Loss')
+        axs[1].scatter(list(generations_test.keys()), list(generations_test.values()), alpha=0.9, cmap=cmap, label=method)
+
 
     plt.legend(loc='upper left')
     plt.show()
 
-    # plot(train, test) # Keep this in normally
 
     # starting off by using normal optimisor
 

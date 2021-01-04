@@ -60,7 +60,7 @@ def generateDataFrame():
 
     for i in range(population):
         # random list of 0's or 1's to form gray coded chromosome
-        individual = [random.randint(0, 1) for _ in range(bit_length*3)]
+        individual = [random.randint(0, 1) for _ in range(numOfBits)]
         individual = [str(x) for x in individual]
 
         # split the chromosome into decision variables for the dataframe
@@ -108,7 +108,6 @@ def ENDS(df):
                         fronts.append([row])
                         df.at[row.name, 'front number'] = num_fronts
                         break
-
                 # If it isn't dominated then append it to the same front and stop
                 elif added == False:
                     fronts[i].append(row)
@@ -144,7 +143,8 @@ def crowding_distance(df):
             # for each row in front
             for i, element2 in front.iterrows():
                 # If crwoding distance is less than current closest
-                if abs(element2['f2'] - element['f2']) + abs(element2['f1'] - element['f1']) < closest and abs(element2['f2'] - element['f2']) + abs(element2['f1'] - element['f1']) != 0:
+                if abs(element2['f2'] - element['f2']) + abs(element2['f1'] - element['f1']) < closest and\
+                        abs(element2['f2'] - element['f2']) + abs(element2['f1'] - element['f1']) != 0:
                     # Assign new crowding distance
                     closest = abs(element2['f2'] - element['f2']) + abs(element2['f1'] - element['f1'])
 
@@ -183,18 +183,16 @@ def tournament_selection(df):
         # Crossover probability
         if random.random() < crossover_prob: # crossover probability
             for i in range(len(individual1_chromosome)):
-                if random.random() < 0.5: # This needs to be inversely proportional maybe
+                if random.random() < 0.5: # Chance of picking either chromosome
+
                     individual1_chromosome = individual1_chromosome[:i] + individual2_chromosome[i] + individual1_chromosome[i+1:]
                     individual2_chromosome = individual2_chromosome[:i] + individual1_chromosome[i] + individual2_chromosome[i+1:]
 
                     # parent1_chromosome[i], parent2_chromosome[i] = parent2_chromosome[i], parent1_chromosome[i]
                 if random.random() < flip_prob:
                     individual1_chromosome = individual1_chromosome[:i] + str(int(individual1_chromosome[i]) ^ 1) + individual1_chromosome[i+1:]
-                    # print("flip", i)
                 if random.random() < flip_prob:
                     individual2_chromosome = individual2_chromosome[:i] + str(int(individual2_chromosome[i]) ^ 1) + individual2_chromosome[i+1:]
-                    # print("flip", i)
-
 
         return individual1_chromosome, individual2_chromosome
 
@@ -205,13 +203,6 @@ def tournament_selection(df):
     parent2 = sample_pair(df)
     child1, child2 = uniform(parent1, parent2)
 
-    # Convert to pandas row
-    # Check the above process
-    # child = pd.DataFrame(columns=['x1', 'x2', 'x3', 'f1', 'f2'])
-    # df.loc[i] = [child[:bit_length], child[bit_length:], , _f1, _f2]
-
-    # child = pd.DataFrame({'x1': child[:bit_length], 'x2': child[bit_length:]})
-    # print(child1, child2)
     return child1, child2
 
 
@@ -236,13 +227,15 @@ def next_generation(df):
 
     return next_gen_df
 
+
 def plot(df, initial_df):
     fig = plt.figure()
     ax1 = fig.add_subplot(111)
     ax1.scatter(initial_df['f1'], initial_df['f2'], s=20, c='b', marker="o", label='initial generation')
     ax1.scatter(df['f1'], df['f2'], s=20, c='r', marker="o", label='next generation')
-    plt.legend(loc='upper left');
+    plt.legend(loc='upper left')
     plt.show()
+
 
 def main():
     # Q1.1
@@ -261,18 +254,9 @@ def main():
     print("\nQ1.3\n", df[['f1', 'f2', 'front number', "crowding distance"]])
 
     # Q1.4
-    # Make this into a function
-    # Generate new data from new population
     initial_df = df
     df = next_generation(df)
-
-    # df = ENDS(df)
-    # df = crowding_distance(df)
-
     plot(df, initial_df)
-
-    # print("------------------NEXT GEN------------------")
-    # # print(next_gen_df)
 
     # Q1.5 Combined
     df = pd.concat([df, initial_df])
@@ -287,26 +271,28 @@ def main():
 
     ax1.scatter(df[:25]['f1'], df[:25]['f2'], s=20, c='b', marker="o", label='selected generation')
     ax1.scatter(df[25:]['f1'], df[25:]['f2'], s=20, c='r', marker="o", label='overall generation')
-    plt.legend(loc='upper left');
+    plt.legend(loc='upper left')
     plt.show()
 
     # Q1.6 Hypervolume
     hypervolumes = []
+    # Calculate for every gen
     for i in range(NGEN):
+        # create next generation
         df = next_generation(df)
         df = ENDS(df)
         df = crowding_distance(df)
 
-        # plot(df, initial_df)
-        # problem if a generation has a worse value of f1 or f2 than original worst
+        # Calculate hypervolume from previously determined worst values in initial gen
         hyp = pg.hypervolume(df[['f1', 'f2']].values)
-        hyp = hyp.compute([worst_f1+1, worst_f2+1]) # added 2 ;)
+        hyp = hyp.compute([worst_f1, worst_f2])
         print(f"Hypervolume: {hyp}")
+        # Normalise the hypervolume
         hyp = hyp/np.prod([worst_f1, worst_f2])
         print(f'Normalised Hypervolume: {hyp}')
         hypervolumes.append(hyp)
 
-
+    # plot the hypervolumes against generation number
     sns.regplot([i for i in range(len(hypervolumes))], hypervolumes)
     plt.show()
 
